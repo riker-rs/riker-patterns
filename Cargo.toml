@@ -1,0 +1,16 @@
+[package]
+name = "riker-patterns"
+version = "0.1.0"
+authors = ["Lee Smith <leenozara@gmail.com>"]
+description = "A collection of common actor patterns for Riker"
+homepage = "http://riker.rs"
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+riker = "0.1.0"
+futures-preview = "0.2.2"
+
+[dev-dependencies]
+riker-default = "0.1.0"
+riker-testkit = "0.1.0"
