@@ -14,7 +14,14 @@ The intention is to add many patterns, some of which are well documented in popu
 The Ask pattern allows values to be sent by actors to outside of the actor system. The value is delivered as a `Future`.
 
 Let's look at how this works:
+`Cargo.toml`:
+```toml
+[dependencies]
+riker = "0.1.0"
+riker-patterns = "0.1.0"
+```
 
+`main.rs`:
 ```rust
 extern crate riker_patterns;
 

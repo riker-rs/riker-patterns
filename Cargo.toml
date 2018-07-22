@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Lee Smith <leenozara@gmail.com>"]
 description = "A collection of common actor patterns for Riker"
 homepage = "http://riker.rs"
+repository = "https://github.com/riker-rs/riker-patterns"
 license = "MIT"
 readme = "README.md"
 
