@@ -68,7 +68,88 @@ impl<Msg: Message> Actor for AskActor<Msg> {
         if let Ok(mut tx) = self.tx.lock() {
             tx.take().unwrap().send(msg).unwrap();
         }
-        
+
         ctx.stop(&ctx.myself);
     }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate riker_default;
+
+    use self::riker_default::DefaultModel;
+    use futures::executor::block_on;
+    use ask::ask;
+    use riker::actors::*;
+
+    #[test]
+    /// throw a few thousand asks around
+    fn stress_test() {
+        #[derive(Debug, Clone)]
+        enum Protocol {
+            Foo,
+            FooResult,
+        }
+
+        let system: ActorSystem<Protocol> = {
+            let model: DefaultModel<Protocol> = DefaultModel::new();
+            ActorSystem::new(&model).unwrap()
+        };
+
+        impl Into<ActorMsg<Protocol>> for Protocol {
+            fn into(self) -> ActorMsg<Protocol> {
+                ActorMsg::User(self)
+            }
+        }
+
+        struct FooActor;
+
+        impl Actor for FooActor {
+            type Msg = Protocol;
+
+            fn receive(
+                &mut self,
+                context: &Context<Self::Msg>,
+                _: Self::Msg,
+                sender: Option<ActorRef<Self::Msg>>,
+            ) {
+                sender.try_tell(
+                    Protocol::FooResult,
+                    Some(context.myself()),
+                ).unwrap();
+            }
+        }
+
+        impl FooActor {
+            fn new() -> FooActor {
+                FooActor{}
+            }
+
+            fn actor() -> BoxActor<Protocol> {
+                Box::new(FooActor::new())
+            }
+
+            pub fn props() -> BoxActorProd<Protocol> {
+                Props::new(Box::new(FooActor::actor))
+            }
+        }
+
+        let actor = system
+            .actor_of(
+                FooActor::props(),
+                "foo",
+            )
+            .unwrap();
+
+        for i in 1..10000 {
+            println!("{:?}", i);
+            let a = ask(
+                &system,
+                &actor,
+                Protocol::Foo,
+            );
+            block_on(a).unwrap();
+        }
+    }
+
 }
