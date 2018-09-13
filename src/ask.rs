@@ -7,13 +7,14 @@ use futures::{Future, Poll, task};
 
 use riker::actors::*;
 
-pub fn ask<Msg, Ctx, T>(ctx: &Ctx, receiver: &T, msg: Msg)
+pub fn ask<Msg, Ctx, T, M>(ctx: &Ctx, receiver: &T, msg: M)
                         -> Box<Future<Item=Msg, Error=Canceled> + Send>
     where Msg: Message,
+            M: Into<ActorMsg<Msg>>,
             Ctx: TmpActorRefFactory<Msg=Msg> + ExecutionContext,
             T: Tell<Msg=Msg>
 {
-    let ask = Ask::new(ctx, receiver.clone(), msg);
+    let ask = Ask::new(ctx, receiver.clone(), msg.into());
     let ask = ctx.execute(ask);
     Box::new(ask)
 }
@@ -23,7 +24,7 @@ pub struct Ask<Msg: Message> {
 }
 
 impl<Msg: Message> Ask<Msg> {
-    pub fn new<Ctx, T>(ctx: &Ctx, receiver: &T, msg: Msg) -> Ask<Msg>
+    pub fn new<Ctx, T>(ctx: &Ctx, receiver: &T, msg: ActorMsg<Msg>) -> Ask<Msg>
         where Ctx: TmpActorRefFactory<Msg=Msg>, T: Tell<Msg=Msg>
     {
         let (tx, rx) = channel::<Msg>();
