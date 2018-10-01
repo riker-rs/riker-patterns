@@ -17,8 +17,8 @@ Let's look at how this works:
 `Cargo.toml`:
 ```toml
 [dependencies]
-riker = "0.1.0"
-riker-patterns = "0.1.0"
+riker = "0.1.8"
+riker-patterns = "0.1.8"
 ```
 
 `main.rs`:
