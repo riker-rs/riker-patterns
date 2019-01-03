@@ -2,16 +2,19 @@
 name = "riker-patterns"
 version = "0.1.8"
 authors = ["Lee Smith <leenozara@gmail.com>"]
+edition = "2018"
 description = "A collection of common actor patterns for Riker"
-homepage = "http://riker.rs"
+homepage = "https://riker.rs"
 repository = "https://github.com/riker-rs/riker-patterns"
 license = "MIT"
 readme = "README.md"
 
 [dependencies]
-riker = "0.1.8"
-futures-preview = "0.2.2"
+riker = { path = "/dev/tmp/riker/riker", version = "0.1.8" }
+# riker = "0.1.8"
+futures-preview = "0.3.0-alpha.10"
 
 [dev-dependencies]
-riker-default = "0.1.8"
+riker-default = { path = "/dev/tmp/riker/riker/riker-default", version = "0.1.8" }
+# riker-default = "0.1.8"
 riker-testkit = "0.1.0"
