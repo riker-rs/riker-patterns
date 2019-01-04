@@ -10,11 +10,11 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-riker = { path = "/dev/tmp/riker/riker", version = "0.1.8" }
+riker = { path = "/home/lee/dev/tmp/riker/riker", version = "0.1.8" }
 # riker = "0.1.8"
 futures-preview = "0.3.0-alpha.10"
 
 [dev-dependencies]
-riker-default = { path = "/dev/tmp/riker/riker/riker-default", version = "0.1.8" }
+riker-default = { path = "/home/lee/dev/tmp/riker/riker/riker-default", version = "0.1.8" }
 # riker-default = "0.1.8"
 riker-testkit = "0.1.0"
