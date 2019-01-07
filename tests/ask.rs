@@ -40,7 +40,7 @@ fn ask_actor() {
     let msg = "hello".to_string();
 
     let res = ask(&sys, &actor, msg.clone());
-    let res = block_on(res).unwrap();
+    let res = block_on(res);
 
     assert_eq!(res, msg);    
 }

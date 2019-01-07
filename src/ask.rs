@@ -2,50 +2,87 @@
 
 use std::sync::{Arc, Mutex};
 
-use futures::channel::oneshot::{channel, Sender, Receiver, Canceled};
-use futures::{Future, Poll, task};
+use futures::channel::oneshot::{channel, Sender};
+use futures::FutureExt;
+use futures::future::RemoteHandle;
 
 use riker::actors::*;
 
-pub fn ask<Msg, Ctx, T>(ctx: &Ctx, receiver: &T, msg: Msg)
-                        -> Box<Future<Item=Msg, Error=Canceled> + Send>
+/// Convenience fuction to send and receive a message from an actor
+/// 
+/// This function sends a message `msg` to the provided actor `receiver`
+/// and returns a `Future` which will be completed when `receiver` replies
+/// by sending a message to the `sender`. The sender is a temporary actor
+/// that fulfills the `Future` upon receiving the reply.
+/// 
+/// `futures::future::RemoteHandle` is the future returned and the task
+/// is executed on the provided executor `ctx`.
+/// 
+/// This pattern is especially useful for interacting with actors from outside
+/// of the actor system, such as sending data from HTTP request to an actor
+/// and returning a future to the HTTP response, or using await.
+/// 
+/// # Examples
+/// 
+/// ```
+/// # use riker::actors::*;
+/// # use riker_default::DefaultModel;
+/// # use riker_patterns::ask::ask;
+/// # use futures::executor::block_on;
+/// 
+/// struct Reply;
+/// 
+/// impl Actor for Reply {
+///     type Msg = String;
+/// 
+///    fn receive(&mut self,
+///                 ctx: &Context<Self::Msg>,
+///                 msg: Self::Msg,
+///                 sender: Option<ActorRef<Self::Msg>>) {
+///         // reply to the temporary ask actor
+///         sender.try_tell(
+///             format!("Hello {}", msg), None
+///         ).unwrap();
+///     }
+/// }
+/// 
+/// impl Reply {
+///     fn actor() -> BoxActor<String> {
+///         Box::new(Reply)
+///     }
+/// }
+/// 
+/// // set up the actor system
+/// let model: DefaultModel<String> = DefaultModel::new();
+/// let sys = ActorSystem::new(&model).unwrap();
+/// 
+/// // create instance of Reply actor
+/// let props = Props::new(Box::new(Reply::actor));
+/// let actor = sys.actor_of(props, "reply").unwrap();
+/// 
+/// // ask the actor
+/// let msg = "Will Riker".to_string();
+/// let r = ask(&sys, &actor, msg);
+/// 
+/// assert_eq!(block_on(r), "Hello Will Riker".to_string());
+/// ```
+pub fn ask<Msg, Ctx, T, M>(ctx: &Ctx, receiver: &T, msg: M)
+                        -> RemoteHandle<Msg>
     where Msg: Message,
+            M: Into<ActorMsg<Msg>>,
             Ctx: TmpActorRefFactory<Msg=Msg> + ExecutionContext,
             T: Tell<Msg=Msg>
 {
-    let ask = Ask::new(ctx, receiver.clone(), msg);
-    let ask = ctx.execute(ask);
-    Box::new(ask)
-}
+    let (tx, rx) = channel::<Msg>();
+    let tx = Arc::new(Mutex::new(Some(tx)));
 
-pub struct Ask<Msg: Message> {
-    inner: Receiver<Msg>,
-}
-
-impl<Msg: Message> Ask<Msg> {
-    pub fn new<Ctx, T>(ctx: &Ctx, receiver: &T, msg: Msg) -> Ask<Msg>
-        where Ctx: TmpActorRefFactory<Msg=Msg>, T: Tell<Msg=Msg>
-    {
-        let (tx, rx) = channel::<Msg>();
-        let tx = Arc::new(Mutex::new(Some(tx)));
-
-        let props = Props::new_args(Box::new(AskActor::new), tx);
-        let actor = ctx.tmp_actor_of(props).unwrap();
-        receiver.tell(msg, Some(actor));
-
-        Ask {
-            inner: rx
-        }
-    }
-}
-
-impl<Msg: Message> Future for Ask<Msg> {
-    type Item = Msg;
-    type Error = Canceled;
-
-    fn poll(&mut self, cx: &mut task::Context) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll(cx)
-    }
+    let props = Props::new_args(Box::new(AskActor::new), tx);
+    let actor = ctx.tmp_actor_of(props).unwrap();
+    receiver.tell(msg, Some(actor));
+    
+    ctx.execute(
+        rx.map(|r| r.unwrap())
+    )
 }
 
 struct AskActor<Msg> {
@@ -64,7 +101,10 @@ impl<Msg: Message> AskActor<Msg> {
 impl<Msg: Message> Actor for AskActor<Msg> {
     type Msg = Msg;
 
-    fn receive(&mut self, ctx: &Context<Msg>, msg: Msg, _: Option<ActorRef<Msg>>) {
+    fn receive(&mut self,
+                ctx: &Context<Msg>,
+                msg: Msg,
+                _: Option<ActorRef<Msg>>) {
         if let Ok(mut tx) = self.tx.lock() {
             tx.take().unwrap().send(msg).unwrap();
         }
@@ -75,13 +115,11 @@ impl<Msg: Message> Actor for AskActor<Msg> {
 
 #[cfg(test)]
 mod tests {
-    extern crate riker_default;
-
-    use self::riker_default::DefaultModel;
+    use riker_default::DefaultModel;
     use futures::executor::block_on;
-    use ask::ask;
     use riker::actors::*;
-
+    use crate::ask::ask;
+    
     #[test]
     /// throw a few thousand asks around
     fn stress_test() {
@@ -142,13 +180,12 @@ mod tests {
             .unwrap();
 
         for i in 1..10000 {
-            println!("{:?}", i);
             let a = ask(
                 &system,
                 &actor,
                 Protocol::Foo,
             );
-            block_on(a).unwrap();
+            block_on(a);
         }
     }
 
