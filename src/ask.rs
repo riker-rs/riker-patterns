@@ -64,10 +64,10 @@ use riker::actors::*;
 /// let msg = "Will Riker".to_string();
 /// let r = ask(&sys, &actor, msg);
 /// 
-/// assert_eq!(block_on(r).unwrap(), "Hello Will Riker".to_string());
+/// assert_eq!(block_on(r), "Hello Will Riker".to_string());
 /// ```
 pub fn ask<Msg, Ctx, T, M>(ctx: &Ctx, receiver: &T, msg: M)
-                        -> RemoteHandle<ExecResult<Msg>>
+                        -> RemoteHandle<Msg>
     where Msg: Message,
             M: Into<ActorMsg<Msg>>,
             Ctx: TmpActorRefFactory<Msg=Msg> + ExecutionContext,
@@ -180,13 +180,12 @@ mod tests {
             .unwrap();
 
         for i in 1..10000 {
-            println!("{:?}", i);
             let a = ask(
                 &system,
                 &actor,
                 Protocol::Foo,
             );
-            block_on(a).unwrap();
+            block_on(a);
         }
     }
 
