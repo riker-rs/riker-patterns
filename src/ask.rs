@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use futures::channel::oneshot::{channel, Sender};
+use futures::channel::oneshot::{channel, Sender as ChannelSender};
 use futures::FutureExt;
 use futures::future::RemoteHandle;
 
@@ -26,19 +26,19 @@ use riker::actors::*;
 /// 
 /// ```
 /// # use riker::actors::*;
-/// # use riker_default::DefaultModel;
 /// # use riker_patterns::ask::ask;
+/// # use futures::future::RemoteHandle;
 /// # use futures::executor::block_on;
 /// 
 /// struct Reply;
 /// 
 /// impl Actor for Reply {
-///     type Msg = String;
+///    type Msg = String;
 /// 
-///    fn receive(&mut self,
+///    fn recv(&mut self,
 ///                 ctx: &Context<Self::Msg>,
 ///                 msg: Self::Msg,
-///                 sender: Option<ActorRef<Self::Msg>>) {
+///                 sender: Sender) {
 ///         // reply to the temporary ask actor
 ///         sender.try_tell(
 ///             format!("Hello {}", msg), None
@@ -54,7 +54,7 @@ use riker::actors::*;
 /// 
 /// // set up the actor system
 /// let model: DefaultModel<String> = DefaultModel::new();
-/// let sys = ActorSystem::new(&model).unwrap();
+/// let sys = ActorSystem::new().unwrap();
 /// 
 /// // create instance of Reply actor
 /// let props = Props::new(Box::new(Reply::actor));
@@ -62,38 +62,37 @@ use riker::actors::*;
 /// 
 /// // ask the actor
 /// let msg = "Will Riker".to_string();
-/// let r = ask(&sys, &actor, msg);
+/// let r: RemoteHandle<String> = ask(&sys, &actor, msg);
 /// 
 /// assert_eq!(block_on(r), "Hello Will Riker".to_string());
 /// ```
-pub fn ask<Msg, Ctx, T, M>(ctx: &Ctx, receiver: &T, msg: M)
-                        -> RemoteHandle<Msg>
+
+pub fn ask<Msg, Ctx, R, T>(ctx: &Ctx, receiver: &T, msg: Msg)
+                           -> RemoteHandle<R>
     where Msg: Message,
-            M: Into<ActorMsg<Msg>>,
-            Ctx: TmpActorRefFactory<Msg=Msg> + ExecutionContext,
-            T: Tell<Msg=Msg>
+          R: Message,
+          Ctx: TmpActorRefFactory + Run,
+          T: Tell<Msg>
 {
-    let (tx, rx) = channel::<Msg>();
+    let (tx, rx) = channel::<R>();
     let tx = Arc::new(Mutex::new(Some(tx)));
 
     let props = Props::new_args(Box::new(AskActor::new), tx);
     let actor = ctx.tmp_actor_of(props).unwrap();
-    receiver.tell(msg, Some(actor));
-    
-    ctx.execute(
+    receiver.tell(msg, Some(actor.into()));
+
+    ctx.run(
         rx.map(|r| r.unwrap())
-    )
+    ).unwrap()
 }
 
 struct AskActor<Msg> {
-    tx: Arc<Mutex<Option<Sender<Msg>>>>,
+    tx: Arc<Mutex<Option<ChannelSender<Msg>>>>,
 }
 
 impl<Msg: Message> AskActor<Msg> {
-    fn new(tx: Arc<Mutex<Option<Sender<Msg>>>>) -> BoxActor<Msg> {
-        let ask = AskActor {
-            tx: tx
-        };
+    fn new(tx: Arc<Mutex<Option<ChannelSender<Msg>>>>) -> BoxActor<Msg> {
+        let ask = AskActor { tx };
         Box::new(ask)
     }
 }
@@ -101,25 +100,24 @@ impl<Msg: Message> AskActor<Msg> {
 impl<Msg: Message> Actor for AskActor<Msg> {
     type Msg = Msg;
 
-    fn receive(&mut self,
-                ctx: &Context<Msg>,
-                msg: Msg,
-                _: Option<ActorRef<Msg>>) {
+    fn recv(&mut self,
+            ctx: &Context<Msg>,
+            msg: Msg,
+            _: Sender) {
         if let Ok(mut tx) = self.tx.lock() {
             tx.take().unwrap().send(msg).unwrap();
         }
-
         ctx.stop(&ctx.myself);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use riker_default::DefaultModel;
     use futures::executor::block_on;
     use riker::actors::*;
     use crate::ask::ask;
-    
+    use futures::future::RemoteHandle;
+
     #[test]
     /// throw a few thousand asks around
     fn stress_test() {
@@ -129,58 +127,41 @@ mod tests {
             FooResult,
         }
 
-        let system: ActorSystem<Protocol> = {
-            let model: DefaultModel<Protocol> = DefaultModel::new();
-            ActorSystem::new(&model).unwrap()
-        };
-
-        impl Into<ActorMsg<Protocol>> for Protocol {
-            fn into(self) -> ActorMsg<Protocol> {
-                ActorMsg::User(self)
-            }
-        }
+        let system: ActorSystem = ActorSystem::new().unwrap();
 
         struct FooActor;
 
         impl Actor for FooActor {
             type Msg = Protocol;
 
-            fn receive(
+            fn recv(
                 &mut self,
                 context: &Context<Self::Msg>,
                 _: Self::Msg,
-                sender: Option<ActorRef<Self::Msg>>,
+                sender: Sender,
             ) {
-                sender.try_tell(
+                sender.unwrap().try_tell(
                     Protocol::FooResult,
-                    Some(context.myself()),
+                    Some(context.myself().into()),
                 ).unwrap();
             }
         }
 
         impl FooActor {
             fn new() -> FooActor {
-                FooActor{}
-            }
-
-            fn actor() -> BoxActor<Protocol> {
-                Box::new(FooActor::new())
-            }
-
-            pub fn props() -> BoxActorProd<Protocol> {
-                Props::new(Box::new(FooActor::actor))
+                FooActor {}
             }
         }
 
         let actor = system
             .actor_of(
-                FooActor::props(),
+                Props::new(Box::new(FooActor::new)),
                 "foo",
             )
             .unwrap();
 
-        for i in 1..10000 {
-            let a = ask(
+        for _i in 1..10000 {
+            let a: RemoteHandle<Protocol> = ask(
                 &system,
                 &actor,
                 Protocol::Foo,
@@ -188,5 +169,4 @@ mod tests {
             block_on(a);
         }
     }
-
 }

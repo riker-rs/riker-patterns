@@ -1,13 +1,10 @@
 extern crate riker;
-extern crate riker_default;
 #[macro_use]
 extern crate riker_testkit;
 #[macro_use]
 extern crate riker_patterns;
 
 use riker::actors::*;
-use riker_default::DefaultModel;
-
 use riker_testkit::probe::{Probe, ProbeReceive};
 use riker_testkit::probe::channel::{probe, ChannelProbe};
 use riker_patterns::transform::Receive;
@@ -23,15 +20,11 @@ enum ProbeMsg {
 
 #[derive(Clone, Debug)]
 enum MyMsg {
-    SetPassword(String), // password
-    Authenticate(String), // password
+    SetPassword(String),
+    // password
+    Authenticate(String),
+    // password
     Probe(TestProbe), // a probe will be used
-}
-
-impl Into<ActorMsg<MyMsg>> for MyMsg {
-    fn into(self) -> ActorMsg<MyMsg> {
-        ActorMsg::User(self)
-    }
 }
 
 #[allow(dead_code)]
@@ -50,23 +43,18 @@ impl UserActor {
             username,
             password: None,
             rec: Self::created,
-            probe: None
+            probe: None,
         };
 
         Box::new(actor)
     }
 
-    fn props(username: String) -> BoxActorProd<MyMsg> {
-        Props::new_args(Box::new(UserActor::actor), username)
-    }
-
     /// Receive method for this actor when it is in a created state
     /// i.e. password has not yet been set.
     fn created(&mut self,
-                _ctx: &Context<MyMsg>,
-                msg: MyMsg,
-                _sender: Option<ActorRef<MyMsg>>) {
-
+               _ctx: &Context<MyMsg>,
+               msg: MyMsg,
+               _sender: Sender) {
         match msg {
             MyMsg::SetPassword(passwd) => {
                 self.password = Some(passwd);
@@ -93,10 +81,9 @@ impl UserActor {
     /// Receive method for this actor when a password has been set
     /// and the user account is now active.
     fn active(&mut self,
-                _ctx: &Context<MyMsg>,
-                msg: MyMsg,
-                _sender: Option<ActorRef<MyMsg>>) {
-
+              _ctx: &Context<MyMsg>,
+              msg: MyMsg,
+              _sender: Sender) {
         match msg {
             MyMsg::Authenticate(_passwd) => {
                 // send back an authentication result to sender
@@ -119,10 +106,10 @@ impl UserActor {
 impl Actor for UserActor {
     type Msg = MyMsg;
 
-    fn receive(&mut self,
-                ctx: &Context<Self::Msg>,
-                msg: Self::Msg,
-                sender: Option<ActorRef<Self::Msg>>) {
+    fn recv(&mut self,
+            ctx: &Context<Self::Msg>,
+            msg: Self::Msg,
+            sender: Sender) {
 
         // just call the currently set function
         (self.rec)(self, ctx, msg, sender)
@@ -131,10 +118,9 @@ impl Actor for UserActor {
 
 #[test]
 fn transform() {
-    let model: DefaultModel<MyMsg> = DefaultModel::new();
-    let sys = ActorSystem::new(&model).unwrap();
+    let sys = ActorSystem::new().unwrap();
 
-    let props = UserActor::props("user123".into());
+    let props = Props::new_args(Box::new(UserActor::actor), "user123".into());
     let actor = sys.actor_of(props, "trans").unwrap();
 
     // set up probe
@@ -144,15 +130,14 @@ fn transform() {
     actor.tell(MyMsg::SetPassword("password123".into()), None);
     actor.tell(MyMsg::Authenticate("password123".into()), None);
 
-    p_assert_eq!(listen, ProbeMsg::Ok);    
+    p_assert_eq!(listen, ProbeMsg::Ok);
 }
 
 #[test]
 fn transform_incorrect() {
-    let model: DefaultModel<MyMsg> = DefaultModel::new();
-    let sys = ActorSystem::new(&model).unwrap();
+    let sys = ActorSystem::new().unwrap();
 
-    let props = UserActor::props("user123".into());
+    let props = Props::new_args(Box::new(UserActor::actor), "user123".into());
     let actor = sys.actor_of(props, "trans").unwrap();
 
     // set up probe
@@ -164,5 +149,5 @@ fn transform_incorrect() {
     actor.tell(MyMsg::Authenticate("password123".into()), None);
 
     // we should receive Err.
-    p_assert_eq!(listen, ProbeMsg::Err);    
+    p_assert_eq!(listen, ProbeMsg::Err);
 }

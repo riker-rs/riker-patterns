@@ -17,41 +17,39 @@ Let's look at how this works:
 `Cargo.toml`:
 ```toml
 [dependencies]
-riker = "0.1.8"
-riker-patterns = "0.1.8"
+riker = "0.3.0"
+riker-patterns = "0.3.0"
 ```
 
 `main.rs`:
 ```rust
-extern crate riker_patterns;
-
-use riker_patterns::ask;
+use futures::future::RemoteHandle;
+use riker_patterns::ask::*;
 
 struct MyActor;
 
 impl Actor for MyActor {
     type Msg = u32;
 
-    fn receive(&mut self,
-                ctx: &Context<Self::Msg>,
-                msg: Self::Msg,
-                sender: ActorRef<Self::Msg>) {
+    fn recv(&mut self,
+            ctx: &Context<Self::Msg>,
+            msg: Self::Msg,
+            sender: Sender) {
 
         // sender is the Ask, waiting to a message to be sent back to it
-        sender.try_tell(msg * 2, Some(ctx.myself()));
+        sender.try_tell(msg * 2, Some(ctx.myself().into()));
     }
 }
 
 fn main() {
-    let model: DefaultModel<u32> = DefaultModel::new();
-    let sys = ActorSystem::new(&model).unwrap();
+    let sys = ActorSystem::new().unwrap();
 
-    let props = MyActor::props();
+    let props = Props::new(Box::new(MyActor::new));
     let my_actor = sys.actor_of(props, "my-actor");
 
     // ask returns a future that automatically is driven
     // to completion by the system.
-    let res = ask(&sys, &my_actor, 100);
+    let res: RemoteHandle<u32> = ask(&sys, &my_actor, 100);
 
     // the result future can be passed to a library or fuction that
     // expects a future, or it can be extracted locally using `block_on`.
@@ -76,16 +74,14 @@ Example:
 
 ```rust
 #[macro_use]
-extern crate riker_patterns;
-
-use riker_patterns::ask;
+use riker_patterns::transform::*;
 
 impl ShoppingCart {
     // created state
     fn created(&mut self,
                 ctx: &Context<MyMsg>,
                 msg: MyMsg,
-                sender: Option<ActorRef<MyMsg>>) {
+                sender: Sender) {
 
         match msg {
             MyMsg::AddItem(item) => {
@@ -107,7 +103,7 @@ impl ShoppingCart {
     fn cancelled(&mut self,
                 ctx: &Context<MyMsg>,
                 msg: MyMsg,
-                sender: Option<ActorRef<MyMsg>>) {
+                sender: Sender) {
 
         match msg {
             MyMsg::AddItem(item) => {
@@ -129,7 +125,7 @@ impl ShoppingCart {
     fn checkout(&mut self,
                 ctx: &Context<MyMsg>,
                 msg: MyMsg,
-                sender: Option<ActorRef<MyMsg>>) {
+                sender: Sender) {
 
         match msg {
             MyMsg::AddItem(item) => {
@@ -151,10 +147,10 @@ impl ShoppingCart {
 impl Actor for ShoppingCart {
     type Msg = MyMsg;
 
-    fn receive(&mut self,
-                ctx: &Context<Self::Msg>,
-                msg: Self::Msg,
-                sender: Option<ActorRef<Self::Msg>>) {
+    fn recv(&mut self,
+            ctx: &Context<Self::Msg>,
+            msg: Self::Msg,
+            sender: Sender) {
 
         // just call the currently set transform function
         (self.rec)(self, ctx, msg, sender)
