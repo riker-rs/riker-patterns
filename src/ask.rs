@@ -40,7 +40,7 @@ use riker::actors::*;
 ///                 msg: Self::Msg,
 ///                 sender: Sender) {
 ///         // reply to the temporary ask actor
-///         sender.try_tell(
+///         sender.as_ref().unwrap().try_tell(
 ///             format!("Hello {}", msg), None
 ///         ).unwrap();
 ///     }
@@ -53,7 +53,6 @@ use riker::actors::*;
 /// }
 /// 
 /// // set up the actor system
-/// let model: DefaultModel<String> = DefaultModel::new();
 /// let sys = ActorSystem::new().unwrap();
 /// 
 /// // create instance of Reply actor
@@ -111,62 +110,3 @@ impl<Msg: Message> Actor for AskActor<Msg> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use futures::executor::block_on;
-    use riker::actors::*;
-    use crate::ask::ask;
-    use futures::future::RemoteHandle;
-
-    #[test]
-    /// throw a few thousand asks around
-    fn stress_test() {
-        #[derive(Debug, Clone)]
-        enum Protocol {
-            Foo,
-            FooResult,
-        }
-
-        let system: ActorSystem = ActorSystem::new().unwrap();
-
-        struct FooActor;
-
-        impl Actor for FooActor {
-            type Msg = Protocol;
-
-            fn recv(
-                &mut self,
-                context: &Context<Self::Msg>,
-                _: Self::Msg,
-                sender: Sender,
-            ) {
-                sender.unwrap().try_tell(
-                    Protocol::FooResult,
-                    Some(context.myself().into()),
-                ).unwrap();
-            }
-        }
-
-        impl FooActor {
-            fn new() -> FooActor {
-                FooActor {}
-            }
-        }
-
-        let actor = system
-            .actor_of(
-                Props::new(Box::new(FooActor::new)),
-                "foo",
-            )
-            .unwrap();
-
-        for _i in 1..10000 {
-            let a: RemoteHandle<Protocol> = ask(
-                &system,
-                &actor,
-                Protocol::Foo,
-            );
-            block_on(a);
-        }
-    }
-}

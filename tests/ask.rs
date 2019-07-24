@@ -36,3 +36,54 @@ fn ask_actor() {
 
     assert_eq!(res, msg);
 }
+
+#[test]
+fn stress_test() {
+    #[derive(Debug, Clone)]
+    enum Protocol {
+        Foo,
+        FooResult,
+    }
+
+    let system: ActorSystem = ActorSystem::new().unwrap();
+
+    struct FooActor;
+
+    impl Actor for FooActor {
+        type Msg = Protocol;
+
+        fn recv(
+            &mut self,
+            context: &Context<Self::Msg>,
+            _: Self::Msg,
+            sender: Sender,
+        ) {
+            sender.unwrap().try_tell(
+                Protocol::FooResult,
+                Some(context.myself().into()),
+            ).unwrap();
+        }
+    }
+
+    impl FooActor {
+        fn new() -> FooActor {
+            FooActor {}
+        }
+    }
+
+    let actor = system
+        .actor_of(
+            Props::new(Box::new(FooActor::new)),
+            "foo",
+        )
+        .unwrap();
+
+    for _i in 1..10_000 {
+        let a: RemoteHandle<Protocol> = ask(
+            &system,
+            &actor,
+            Protocol::Foo,
+        );
+        block_on(a);
+    }
+}
