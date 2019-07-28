@@ -9,6 +9,11 @@ use riker_testkit::probe::{Probe, ProbeReceive};
 use riker_testkit::probe::channel::{probe, ChannelProbe};
 use riker_patterns::transform::Receive;
 
+// NOTE:
+// Transform! will be updated in the near future,
+// most likely trait-based.
+// This is fairly old currently.
+
 #[derive(Clone, Debug)]
 struct TestProbe(ChannelProbe<(), ProbeMsg>);
 
@@ -38,15 +43,13 @@ struct UserActor {
 }
 
 impl UserActor {
-    fn actor(username: String) -> BoxActor<MyMsg> {
-        let actor = UserActor {
+    fn actor(username: String) -> Self {
+        UserActor {
             username,
             password: None,
             rec: Self::created,
             probe: None,
-        };
-
-        Box::new(actor)
+        }
     }
 
     /// Receive method for this actor when it is in a created state
@@ -120,7 +123,7 @@ impl Actor for UserActor {
 fn transform() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_args(Box::new(UserActor::actor), "user123".into());
+    let props = Props::new_args(UserActor::actor, "user123".into());
     let actor = sys.actor_of(props, "trans").unwrap();
 
     // set up probe
@@ -137,7 +140,7 @@ fn transform() {
 fn transform_incorrect() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_args(Box::new(UserActor::actor), "user123".into());
+    let props = Props::new_args(UserActor::actor, "user123".into());
     let actor = sys.actor_of(props, "trans").unwrap();
 
     // set up probe

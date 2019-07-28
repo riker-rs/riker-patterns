@@ -6,8 +6,8 @@ use futures::future::RemoteHandle;
 struct EchoActor;
 
 impl EchoActor {
-    fn new() -> BoxActor<String> {
-        Box::new(EchoActor)
+    fn new() -> Self {
+        EchoActor
     }
 }
 
@@ -26,7 +26,7 @@ impl Actor for EchoActor {
 fn ask_actor() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new(Box::new(EchoActor::new));
+    let props = Props::new(EchoActor::new);
     let actor = sys.actor_of(props, "me").unwrap();
 
     let msg = "hello".to_string();
@@ -73,7 +73,7 @@ fn stress_test() {
 
     let actor = system
         .actor_of(
-            Props::new(Box::new(FooActor::new)),
+            Props::new(FooActor::new),
             "foo",
         )
         .unwrap();
