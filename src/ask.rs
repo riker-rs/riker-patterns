@@ -3,38 +3,38 @@
 use std::sync::{Arc, Mutex};
 
 use futures::channel::oneshot::{channel, Sender as ChannelSender};
-use futures::FutureExt;
 use futures::future::RemoteHandle;
+use futures::FutureExt;
 
 use riker::actors::*;
 
 /// Convenience fuction to send and receive a message from an actor
-/// 
+///
 /// This function sends a message `msg` to the provided actor `receiver`
 /// and returns a `Future` which will be completed when `receiver` replies
 /// by sending a message to the `sender`. The sender is a temporary actor
 /// that fulfills the `Future` upon receiving the reply.
-/// 
+///
 /// `futures::future::RemoteHandle` is the future returned and the task
 /// is executed on the provided executor `ctx`.
-/// 
+///
 /// This pattern is especially useful for interacting with actors from outside
 /// of the actor system, such as sending data from HTTP request to an actor
 /// and returning a future to the HTTP response, or using await.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// # use riker::actors::*;
 /// # use riker_patterns::ask::ask;
 /// # use futures::future::RemoteHandle;
 /// # use futures::executor::block_on;
-/// 
+///
 /// struct Reply;
-/// 
+///
 /// impl Actor for Reply {
 ///    type Msg = String;
-/// 
+///
 ///    fn recv(&mut self,
 ///                 ctx: &Context<Self::Msg>,
 ///                 msg: Self::Msg,
@@ -45,33 +45,33 @@ use riker::actors::*;
 ///         ).unwrap();
 ///     }
 /// }
-/// 
+///
 /// impl Reply {
 ///     fn actor() -> BoxActor<String> {
 ///         Box::new(Reply)
 ///     }
 /// }
-/// 
+///
 /// // set up the actor system
 /// let sys = ActorSystem::new().unwrap();
-/// 
+///
 /// // create instance of Reply actor
 /// let props = Props::new(Box::new(Reply::actor));
 /// let actor = sys.actor_of(props, "reply").unwrap();
-/// 
+///
 /// // ask the actor
 /// let msg = "Will Riker".to_string();
 /// let r: RemoteHandle<String> = ask(&sys, &actor, msg);
-/// 
+///
 /// assert_eq!(block_on(r), "Hello Will Riker".to_string());
 /// ```
 
-pub fn ask<Msg, Ctx, R, T>(ctx: &Ctx, receiver: &T, msg: Msg)
-                           -> RemoteHandle<R>
-    where Msg: Message,
-          R: Message,
-          Ctx: TmpActorRefFactory + Run,
-          T: Tell<Msg>
+pub fn ask<Msg, Ctx, R, T>(ctx: &Ctx, receiver: &T, msg: Msg) -> RemoteHandle<R>
+where
+    Msg: Message,
+    R: Message,
+    Ctx: TmpActorRefFactory + Run,
+    T: Tell<Msg>,
 {
     let (tx, rx) = channel::<R>();
     let tx = Arc::new(Mutex::new(Some(tx)));
@@ -80,9 +80,7 @@ pub fn ask<Msg, Ctx, R, T>(ctx: &Ctx, receiver: &T, msg: Msg)
     let actor = ctx.tmp_actor_of(props).unwrap();
     receiver.tell(msg, Some(actor.into()));
 
-    ctx.run(
-        rx.map(|r| r.unwrap())
-    ).unwrap()
+    ctx.run(rx.map(|r| r.unwrap())).unwrap()
 }
 
 struct AskActor<Msg> {
@@ -99,14 +97,10 @@ impl<Msg: Message> AskActor<Msg> {
 impl<Msg: Message> Actor for AskActor<Msg> {
     type Msg = Msg;
 
-    fn recv(&mut self,
-            ctx: &Context<Msg>,
-            msg: Msg,
-            _: Sender) {
+    fn recv(&mut self, ctx: &Context<Msg>, msg: Msg, _: Sender) {
         if let Ok(mut tx) = self.tx.lock() {
             tx.take().unwrap().send(msg).unwrap();
         }
         ctx.stop(&ctx.myself);
     }
 }
-

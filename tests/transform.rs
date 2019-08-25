@@ -5,9 +5,9 @@ extern crate riker_testkit;
 extern crate riker_patterns;
 
 use riker::actors::*;
-use riker_testkit::probe::{Probe, ProbeReceive};
-use riker_testkit::probe::channel::{probe, ChannelProbe};
 use riker_patterns::transform::Receive;
+use riker_testkit::probe::channel::{probe, ChannelProbe};
+use riker_testkit::probe::{Probe, ProbeReceive};
 
 // NOTE:
 // Transform! will be updated in the near future,
@@ -54,10 +54,7 @@ impl UserActor {
 
     /// Receive method for this actor when it is in a created state
     /// i.e. password has not yet been set.
-    fn created(&mut self,
-               _ctx: &Context<MyMsg>,
-               msg: MyMsg,
-               _sender: Sender) {
+    fn created(&mut self, _ctx: &Context<MyMsg>, msg: MyMsg, _sender: Sender) {
         match msg {
             MyMsg::SetPassword(passwd) => {
                 self.password = Some(passwd);
@@ -83,10 +80,7 @@ impl UserActor {
 
     /// Receive method for this actor when a password has been set
     /// and the user account is now active.
-    fn active(&mut self,
-              _ctx: &Context<MyMsg>,
-              msg: MyMsg,
-              _sender: Sender) {
+    fn active(&mut self, _ctx: &Context<MyMsg>, msg: MyMsg, _sender: Sender) {
         match msg {
             MyMsg::Authenticate(_passwd) => {
                 // send back an authentication result to sender
@@ -109,11 +103,7 @@ impl UserActor {
 impl Actor for UserActor {
     type Msg = MyMsg;
 
-    fn recv(&mut self,
-            ctx: &Context<Self::Msg>,
-            msg: Self::Msg,
-            sender: Sender) {
-
+    fn recv(&mut self, ctx: &Context<Self::Msg>, msg: Self::Msg, sender: Sender) {
         // just call the currently set function
         (self.rec)(self, ctx, msg, sender)
     }
