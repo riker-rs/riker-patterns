@@ -1,7 +1,7 @@
 use futures::executor::block_on;
+use futures::future::RemoteHandle;
 use riker::actors::*;
 use riker_patterns::ask::ask;
-use futures::future::RemoteHandle;
 
 struct EchoActor;
 
@@ -14,11 +14,11 @@ impl EchoActor {
 impl Actor for EchoActor {
     type Msg = String;
 
-    fn recv(&mut self,
-            ctx: &Context<Self::Msg>,
-            msg: Self::Msg,
-            sender: Sender) {
-        sender.unwrap().try_tell(msg, Some(ctx.myself().into())).unwrap();
+    fn recv(&mut self, ctx: &Context<Self::Msg>, msg: Self::Msg, sender: Sender) {
+        sender
+            .unwrap()
+            .try_tell(msg, Some(ctx.myself().into()))
+            .unwrap();
     }
 }
 
@@ -52,16 +52,11 @@ fn stress_test() {
     impl Actor for FooActor {
         type Msg = Protocol;
 
-        fn recv(
-            &mut self,
-            context: &Context<Self::Msg>,
-            _: Self::Msg,
-            sender: Sender,
-        ) {
-            sender.unwrap().try_tell(
-                Protocol::FooResult,
-                Some(context.myself().into()),
-            ).unwrap();
+        fn recv(&mut self, context: &Context<Self::Msg>, _: Self::Msg, sender: Sender) {
+            sender
+                .unwrap()
+                .try_tell(Protocol::FooResult, Some(context.myself().into()))
+                .unwrap();
         }
     }
 
@@ -71,19 +66,10 @@ fn stress_test() {
         }
     }
 
-    let actor = system
-        .actor_of(
-            Props::new(FooActor::new),
-            "foo",
-        )
-        .unwrap();
+    let actor = system.actor_of(Props::new(FooActor::new), "foo").unwrap();
 
     for _i in 1..10_000 {
-        let a: RemoteHandle<Protocol> = ask(
-            &system,
-            &actor,
-            Protocol::Foo,
-        );
+        let a: RemoteHandle<Protocol> = ask(&system, &actor, Protocol::Foo);
         block_on(a);
     }
 }
