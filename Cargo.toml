@@ -10,7 +10,7 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-riker = { path = "../riker" }
+riker = "0.3.2"
 futures = "0.3.4"
 
 [dev-dependencies]
