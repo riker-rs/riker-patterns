@@ -76,8 +76,8 @@ where
     let (tx, rx) = channel::<R>();
     let tx = Arc::new(Mutex::new(Some(tx)));
 
-    let props = Props::new_args(Box::new(AskActor::new), tx);
-    let actor = ctx.tmp_actor_of(props).unwrap();
+    let props = Props::new_from_args(Box::new(AskActor::new), tx);
+    let actor = ctx.tmp_actor_of_props(props).unwrap();
     receiver.tell(msg, Some(actor.into()));
 
     ctx.run(rx.map(|r| r.unwrap())).unwrap()
