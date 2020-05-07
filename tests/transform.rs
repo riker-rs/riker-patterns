@@ -113,8 +113,8 @@ impl Actor for UserActor {
 fn transform() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_args(UserActor::actor, "user123".into());
-    let actor = sys.actor_of(props, "trans").unwrap();
+    let props = Props::new_from_args(UserActor::actor, "user123".into());
+    let actor = sys.actor_of_props("trans", props).unwrap();
 
     // set up probe
     let (probe, listen) = probe();
@@ -130,8 +130,8 @@ fn transform() {
 fn transform_incorrect() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_args(UserActor::actor, "user123".into());
-    let actor = sys.actor_of(props, "trans").unwrap();
+    let props = Props::new_from_args(UserActor::actor, "user123".into());
+    let actor = sys.actor_of_props("trans", props).unwrap();
 
     // set up probe
     let (probe, listen) = probe();

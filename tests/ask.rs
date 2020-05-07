@@ -3,13 +3,8 @@ use futures::future::RemoteHandle;
 use riker::actors::*;
 use riker_patterns::ask::ask;
 
+#[derive(Default)]
 struct EchoActor;
-
-impl EchoActor {
-    fn new() -> Self {
-        EchoActor
-    }
-}
 
 impl Actor for EchoActor {
     type Msg = String;
@@ -26,8 +21,7 @@ impl Actor for EchoActor {
 fn ask_actor() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new(EchoActor::new);
-    let actor = sys.actor_of(props, "me").unwrap();
+    let actor = sys.actor_of::<EchoActor>("me").unwrap();
 
     let msg = "hello".to_string();
 
@@ -47,6 +41,7 @@ fn stress_test() {
 
     let system: ActorSystem = ActorSystem::new().unwrap();
 
+    #[derive(Default)]
     struct FooActor;
 
     impl Actor for FooActor {
@@ -60,13 +55,7 @@ fn stress_test() {
         }
     }
 
-    impl FooActor {
-        fn new() -> FooActor {
-            FooActor {}
-        }
-    }
-
-    let actor = system.actor_of(Props::new(FooActor::new), "foo").unwrap();
+    let actor = system.actor_of::<FooActor>("foo").unwrap();
 
     for _i in 1..10_000 {
         let a: RemoteHandle<Protocol> = ask(&system, &actor, Protocol::Foo);
