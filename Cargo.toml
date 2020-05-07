@@ -10,8 +10,8 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-riker = "0.3.2"
-futures-preview = "0.3.0-alpha.16"
+riker = "0.4.0"
+futures = "0.3.4"
 
 [dev-dependencies]
 riker-testkit = "0.1.0"
