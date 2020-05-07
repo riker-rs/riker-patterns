@@ -42,8 +42,8 @@ struct UserActor {
     probe: Option<TestProbe>,
 }
 
-impl UserActor {
-    fn actor(username: String) -> Self {
+impl ActorFactoryArgs<String> for UserActor {
+    fn create_args(username: String) -> Self {
         UserActor {
             username,
             password: None,
@@ -51,7 +51,9 @@ impl UserActor {
             probe: None,
         }
     }
+}
 
+impl UserActor {
     /// Receive method for this actor when it is in a created state
     /// i.e. password has not yet been set.
     fn created(&mut self, _ctx: &Context<MyMsg>, msg: MyMsg, _sender: Sender) {
@@ -113,8 +115,7 @@ impl Actor for UserActor {
 fn transform() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_from_args(UserActor::actor, "user123".into());
-    let actor = sys.actor_of_props("trans", props).unwrap();
+    let actor = sys.actor_of_args::<UserActor, _>("trans", "user123".into()).unwrap();
 
     // set up probe
     let (probe, listen) = probe();
@@ -130,8 +131,7 @@ fn transform() {
 fn transform_incorrect() {
     let sys = ActorSystem::new().unwrap();
 
-    let props = Props::new_from_args(UserActor::actor, "user123".into());
-    let actor = sys.actor_of_props("trans", props).unwrap();
+    let actor = sys.actor_of_args::<UserActor, _>("trans", "user123".into()).unwrap();
 
     // set up probe
     let (probe, listen) = probe();

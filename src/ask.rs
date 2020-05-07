@@ -30,6 +30,7 @@ use riker::actors::*;
 /// # use futures::future::RemoteHandle;
 /// # use futures::executor::block_on;
 ///
+/// #[derive(Default)]
 /// struct Reply;
 ///
 /// impl Actor for Reply {
@@ -46,18 +47,11 @@ use riker::actors::*;
 ///     }
 /// }
 ///
-/// impl Reply {
-///     fn actor() -> BoxActor<String> {
-///         Box::new(Reply)
-///     }
-/// }
-///
 /// // set up the actor system
 /// let sys = ActorSystem::new().unwrap();
 ///
 /// // create instance of Reply actor
-/// let props = Props::new(Box::new(Reply::actor));
-/// let actor = sys.actor_of(props, "reply").unwrap();
+/// let actor = sys.actor_of::<Reply>("reply").unwrap();
 ///
 /// // ask the actor
 /// let msg = "Will Riker".to_string();
